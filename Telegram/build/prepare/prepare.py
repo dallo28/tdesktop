@@ -1485,7 +1485,7 @@ release:
 """
 
 stage('breakpad', """
-    git clone https://chromium.googlesource.com/breakpad/breakpad
+    git clone https://github.com/google/breakpad.git breakpad || git clone https://chromium.googlesource.com/breakpad/breakpad
     cd breakpad
     git checkout dfcb7b6799
 depends:patches/breakpad.diff
