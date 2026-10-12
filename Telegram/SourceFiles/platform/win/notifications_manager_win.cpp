@@ -281,15 +281,27 @@ void QueryFocusAssist() {
 		IQuietHoursSettings
 	>(CLSID_QuietHoursSettings, CLSCTX_LOCAL_SERVER);
 	if (!quietHoursSettings) {
+		if (FocusAssistBlocks) {
+			FocusAssistBlocks = false;
+		}
 		return;
 	}
 
-	auto profileId = base::CoTaskMemString();
-	auto hr = quietHoursSettings->get_UserSelectedProfile(profileId.put());
-	if (FAILED(hr) || !profileId) {
+	auto active = base::CoTaskMemString();
+	auto selected = base::CoTaskMemString();
+	auto hr = quietHoursSettings->get_ActiveProfile(active.put());
+	const auto profileId = (SUCCEEDED(hr) && active && *active.data())
+		? active.data()
+		: (SUCCEEDED(quietHoursSettings->get_UserSelectedProfile(selected.put())) && selected && *selected.data())
+		? selected.data()
+		: nullptr;
+	if (!profileId) {
+		if (FocusAssistBlocks) {
+			FocusAssistBlocks = false;
+		}
 		return;
 	}
-	const auto profileName = QString::fromWCharArray(profileId.data());
+	const auto profileName = QString::fromWCharArray(profileId);
 	if (profileName.endsWith(".alarmsonly", Qt::CaseInsensitive)) {
 		if (!FocusAssistBlocks) {
 			LOG(("Focus Assist: Alarms Only."));
@@ -320,7 +332,7 @@ void QueryFocusAssist() {
 	});
 
 	com_ptr<IQuietHoursProfile> profile;
-	hr = quietHoursSettings->GetProfile(profileId.data(), profile.put());
+	hr = quietHoursSettings->GetProfile(profileId, profile.put());
 	if (FAILED(hr) || !profile) {
 		return;
 	}
