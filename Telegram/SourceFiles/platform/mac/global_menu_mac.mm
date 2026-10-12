@@ -97,6 +97,11 @@ private:
 	// BeforeWaiting before the next NSEvent dispatches, so menu state
 	// is fresh by the time Cmd+C reaches AppKit's performKeyEquivalent.
 	std::unique_ptr<SingleQueuedInvokation> _scheduledUpdate;
+	QMenu *_file = nullptr;
+	QMenu *_edit = nullptr;
+	QMenu *_window = nullptr;
+	QAction *_about = nullptr;
+	QAction *_preferences = nullptr;
 	QAction *_logout = nullptr;
 	QAction *_undo = nullptr;
 	QAction *_redo = nullptr;
@@ -175,11 +180,54 @@ bool Manager::clipboardHasText() {
 }
 
 void Manager::retranslate() {
+	if (const auto loaderClass = NSClassFromString(@"QCocoaMenuLoader")) {
+		if (const auto loader = [loaderClass performSelector:@selector(sharedMenuLoader)]) {
+			if ([loader respondsToSelector:@selector(qtTranslateApplicationMenu)]) {
+				[loader performSelector:@selector(qtTranslateApplicationMenu)];
+			}
+		}
+	}
+	if (_file) {
+		_file->setTitle(tr::lng_mac_menu_file(tr::now));
+	}
+	if (_edit) {
+		_edit->setTitle(tr::lng_mac_menu_edit(tr::now));
+	}
+	if (_window) {
+		_window->setTitle(tr::lng_mac_menu_window(tr::now));
+	}
+	if (_about) {
+		_about->setText(tr::lng_mac_menu_about_telegram(
+			tr::now,
+			lt_telegram,
+			u"Telegram"_q));
+	}
+	if (_preferences) {
+		_preferences->setText(tr::lng_mac_menu_preferences(tr::now));
+	}
 	if (_logout) {
 		_logout->setText(tr::lng_mac_menu_logout(tr::now));
 	}
+	if (_undo) {
+		_undo->setText(tr::lng_mac_menu_undo(tr::now));
+	}
+	if (_redo) {
+		_redo->setText(tr::lng_mac_menu_redo(tr::now));
+	}
+	if (_cut) {
+		_cut->setText(tr::lng_mac_menu_cut(tr::now));
+	}
+	if (_copy) {
+		_copy->setText(tr::lng_mac_menu_copy(tr::now));
+	}
+	if (_paste) {
+		_paste->setText(tr::lng_mac_menu_paste(tr::now));
+	}
 	if (_delete) {
 		_delete->setText(tr::lng_mac_menu_delete(tr::now));
+	}
+	if (_selectAll) {
+		_selectAll->setText(tr::lng_mac_menu_select_all(tr::now));
 	}
 	if (_contacts) {
 		_contacts->setText(tr::lng_mac_menu_contacts(tr::now));
@@ -354,10 +402,10 @@ void Manager::buildAppleMenu(QMenu *main) {
 				window->show(Box(AboutBox));
 			});
 		};
-		const auto about = main->addAction(
+		_about = main->addAction(
 			u"About Telegram"_q,
 			std::move(callback));
-		about->setMenuRole(QAction::AboutQtRole);
+		_about->setMenuRole(QAction::AboutQtRole);
 	}
 
 	main->addSeparator();
@@ -367,13 +415,13 @@ void Manager::buildAppleMenu(QMenu *main) {
 				window->showSettings();
 			});
 		};
-		const auto preferences = main->addAction(
+		_preferences = main->addAction(
 			u"Preferences..."_q,
 			_menuBar.get(),
 			std::move(callback),
 			QKeySequence(Qt::ControlModifier | Qt::Key_Comma));
-		preferences->setMenuRole(QAction::PreferencesRole);
-		preferences->setShortcutContext(Qt::WidgetShortcut);
+		_preferences->setMenuRole(QAction::PreferencesRole);
+		_preferences->setShortcutContext(Qt::WidgetShortcut);
 	}
 }
 
@@ -600,9 +648,12 @@ void Manager::buildWindowMenu(QMenu *window) {
 
 void Manager::buildMenu() {
 	buildAppleMenu(_menuBar->addMenu(u"Telegram"_q));
-	buildFileMenu(_menuBar->addMenu(u"File"_q));
-	buildEditMenu(_menuBar->addMenu(u"Edit"_q));
-	buildWindowMenu(_menuBar->addMenu(u"Window"_q));
+	_file = _menuBar->addMenu(u"File"_q);
+	buildFileMenu(_file);
+	_edit = _menuBar->addMenu(u"Edit"_q);
+	buildEditMenu(_edit);
+	_window = _menuBar->addMenu(u"Window"_q);
+	buildWindowMenu(_window);
 }
 
 void Manager::create() {
@@ -619,17 +670,20 @@ void Manager::create() {
 		}
 		recomputeState();
 	});
+
+	ensureLanguageBound();
 }
 
 void Manager::destroy() {
 	_scheduledUpdate.reset();
 	_lifetime.destroy();
 	_menuBar.reset();
+	_file = _edit = _window = nullptr;
 	_languageBound = false;
-	_logout = _undo = _redo = _cut = _copy = _paste = _delete
-		= _selectAll = _contacts = _addContact = _newGroup
-		= _newChannel = _showTelegram = _fullScreen = _emoji
-		= _bold = _italic = _underline
+	_about = _preferences = _logout = _undo = _redo = _cut = _copy
+		= _paste = _delete = _selectAll = _contacts = _addContact
+		= _newGroup = _newChannel = _showTelegram = _fullScreen
+		= _emoji = _bold = _italic = _underline
 		= _strikeOut = _blockquote = _monospace = _clearFormat
 		= nullptr;
 	_pasteboard = nullptr;
